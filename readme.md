@@ -501,3 +501,73 @@ DB_HOST=localhost uvicorn server:app --reload --port 3000
 ### 요약
 
 두 모델을 조합하는 것은 속도(YOLO)와 유연한 추론 능력(Moondream)을 모두 잡는 매우 스마트한 접근입니다. 구현하시려는 목적에 맞춰 역할 분담을 설계하시면 아주 만족스러운 성능을 얻으실 수 있을 것입니다!
+
+--- 
+
+## 향후 py 도 사용 안하는 시점에서 shell 로 만 제어
+
+**네, Python 코드를 직접 짜지 않고 Docker 환경과 Shell(Bash) 명령어 조합만으로도 충분히 이 파이프라인을 구축할 수 있습니다.**
+
+Ultralytics YOLO는 자체적인 CLI(Command Line Interface)를 제공하며, Moondream 같은 VLM도 Docker 컨테이너나 API 서버 형태로 띄워 쉘 스크립트(.sh)나 cURL 명령어로 연동할 수 있습니다.
+
+---
+
+### 1. 핵심 구성 요소 (Shell 중심)
+
+1. **YOLO 측**: Docker 컨테이너 안에서 `yolo predict` 명령어로 이미지를 처리하고 관심 영역(Crop)을 파일로 추출합니다.
+2. **Moondream 측**: Moondream을 로컬 API 서버(예: Ollama나 자체 FastAPI Docker 컨테이너 등)로 띄워둔 뒤, 쉘의 `curl` 명령어로 텍스트 쿼리를 던집니다.
+3. **Shell 스크립트**: 이 둘을 순차적으로 연결하는 제어 흐름을 담당합니다.
+
+---
+
+### 2. Docker + Shell 파이프라인 예시 시나리오
+
+아래는 개념을 보여주는 Bash 쉘 스크립트 예시입니다. 별도의 파이썬 파일(.py) 작성 없이 쉘 명령어만으로 동작합니다.
+
+```bash
+#!/bin/bash
+
+# 0. 설정 파일 및 이미지 경로
+INPUT_IMAGE="input.jpg"
+CROP_OUTPUT_DIR="./runs/detect/predict/crops/person" # YOLO가 크롭한 이미지가 저장되는 경로
+
+echo "=== 1단계: YOLO로 객체 탐지 및 관심 영역 크롭 수행 ==="
+# Ultralytics 공식 YOLO Docker 이미지를 활용해 컨테이너 안에서 실행하는 예시
+docker run --rm -v $(pwd):/workspace -w /workspace ultralytics/ultralytics \
+    yolo predict model=yolo11n.pt source=$INPUT_IMAGE save_crop=True
+
+echo "=== 2단계: 크롭된 이미지를 Moondream API로 쿼리 전송 ==="
+# (가정: Moondream이 로컬포트 11434 등에서 API 서버로 구동 중일 때)
+# YOLO가 잘라낸 첫 번째 사람 이미지 파일을 대상으로 질문 던지기
+TARGET_CROP="$CROP_OUTPUT_DIR/$(ls -t $CROP_OUTPUT_DIR | head -n 1)"
+
+if [ -f "$TARGET_CROP" ]; then
+    echo "분석할 타겟 이미지: $TARGET_CROP"
+    
+    # cURL을 이용해 VLM 서버로 쿼리 전송 (예시 포맷)
+    curl -X POST "http://localhost:11434/api/generate" \
+    -d "{
+      \"model\": \"moondream\",
+      \"prompt\": \"What is this person wearing?\",
+      \"images\": [\"$(base64 -w 0 $TARGET_CROP)\"]
+    }"
+else
+    echo "탐지된 객체가 없습니다."
+fi
+
+```
+
+---
+
+### 3. 이 방식의 장점과 한계
+
+* **장점**
+* 파이썬 개발환경 설정(가상환경, 패키지 버전 충돌 등)경험 없이 **Docker 이미지**가 제공하는 환경 안에서 명령어 몇 개로 즉시 실행할 수 있습니다.
+* 시스템 자동화(Crontab, Linux 데몬 등)와 결합하기 매우 쉽습니다.
+
+
+* **고려할 점**
+* 이미지의 파일 입출력(IO)이 디스크를 통해 일어나기 때문에, 초당 30프레임 이상의 고속 실시간 처리에는 쉘 스크립트 방식보다 메모리 상에서 직접 처리하는 파이썬 기반 백엔드가 유리할 수 있습니다.
+* 하지만 **이벤트 기반 처리(예: CCTV에 특정 움직임이 포착될 때만 캡처해서 분석)** 구조라면 쉘과 Docker 조합만으로도 충분히 강력하고 가벼운 시스템을 만들 수 있습니다.
+
+---
