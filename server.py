@@ -378,7 +378,7 @@ async def analyze_stock(request: Request):
             return _json(
                 {
                     "message": "Ollama AI 서비스에 연결할 수 없습니다.",
-                    "hint": f"ollama pull {OLLAMA_MODEL}",
+                    "hint": f"docker compose exec ollama ollama pull {OLLAMA_MODEL}",
                     "detail": res.text[:500],
                 },
                 503,
@@ -398,7 +398,7 @@ async def analyze_stock(request: Request):
         return _json(
             {
                 "message": f"AI 서비스 오류: {exc}",
-                "hint": f"ollama pull {OLLAMA_MODEL} 를 실행하여 모델을 먼저 다운로드하세요.",
+                "hint": f"docker compose exec ollama ollama pull {OLLAMA_MODEL} 로 모델을 먼저 다운로드하세요.",
             },
             503,
         )
@@ -524,7 +524,7 @@ async def ai_enhance(request: Request):
             return _json(
                 {
                     "message": "Ollama AI 서비스에 연결할 수 없습니다.",
-                    "hint": f"ollama pull {OLLAMA_MODEL}",
+                    "hint": f"docker compose exec ollama ollama pull {OLLAMA_MODEL}",
                     "detail": res.text[:500],
                 },
                 503,
@@ -544,7 +544,7 @@ async def ai_enhance(request: Request):
         return _json(
             {
                 "message": f"AI 서비스 오류: {exc}",
-                "hint": f"ollama pull {OLLAMA_MODEL} 를 실행하여 모델을 먼저 다운로드하세요.",
+                "hint": f"docker compose exec ollama ollama pull {OLLAMA_MODEL} 로 모델을 먼저 다운로드하세요.",
             },
             503,
         )
