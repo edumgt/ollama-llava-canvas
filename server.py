@@ -18,6 +18,7 @@ load_dotenv()
 
 PORT = int(os.getenv("PORT", 3000))
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "moondream")
 JWT_SECRET = os.getenv("JWT_SECRET", "canvas-secret-key-change-in-production")
 AI_TIMEOUT = 120.0
 
@@ -366,7 +367,7 @@ async def analyze_stock(request: Request):
             res = await client.post(
                 f"{OLLAMA_URL}/api/generate",
                 json={
-                    "model": "llava:34b",
+                    "model": OLLAMA_MODEL,
                     "prompt": STOCK_PROMPT,
                     "images": [base64_image],
                     "stream": False,
@@ -377,7 +378,7 @@ async def analyze_stock(request: Request):
             return _json(
                 {
                     "message": "Ollama AI 서비스에 연결할 수 없습니다.",
-                    "hint": "ollama pull llava:34b",
+                    "hint": f"ollama pull {OLLAMA_MODEL}",
                     "detail": res.text[:500],
                 },
                 503,
@@ -397,7 +398,7 @@ async def analyze_stock(request: Request):
         return _json(
             {
                 "message": f"AI 서비스 오류: {exc}",
-                "hint": "ollama pull llava:34b 를 실행하여 모델을 먼저 다운로드하세요.",
+                "hint": f"ollama pull {OLLAMA_MODEL} 를 실행하여 모델을 먼저 다운로드하세요.",
             },
             503,
         )
@@ -508,7 +509,7 @@ async def ai_enhance(request: Request):
             res = await client.post(
                 f"{OLLAMA_URL}/api/generate",
                 json={
-                    "model": "llava:34b",
+                    "model": OLLAMA_MODEL,
                     "prompt": (
                         "이 스케치를 보고 사실적이고 자연스러운 이미지로 표현한다면 어떤 모습일지 상세하게 묘사해주세요. "
                         "색상, 질감, 빛, 분위기, 구도 등을 포함하여 예술적으로 설명해주세요. "
@@ -523,13 +524,13 @@ async def ai_enhance(request: Request):
             return _json(
                 {
                     "message": "Ollama AI 서비스에 연결할 수 없습니다.",
-                    "hint": "ollama pull llava:34b",
+                    "hint": f"ollama pull {OLLAMA_MODEL}",
                     "detail": res.text[:500],
                 },
                 503,
             )
 
-        return _json({"description": res.json()["response"], "model": "llava"})
+        return _json({"description": res.json()["response"], "model": OLLAMA_MODEL})
 
     except httpx.TimeoutException:
         return _json(
@@ -543,7 +544,7 @@ async def ai_enhance(request: Request):
         return _json(
             {
                 "message": f"AI 서비스 오류: {exc}",
-                "hint": "ollama pull llava:34b 를 실행하여 모델을 먼저 다운로드하세요.",
+                "hint": f"ollama pull {OLLAMA_MODEL} 를 실행하여 모델을 먼저 다운로드하세요.",
             },
             503,
         )

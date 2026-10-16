@@ -8,6 +8,8 @@ services:
       MYSQL_DATABASE: canvasdb
       MYSQL_USER: canvasuser
       MYSQL_PASSWORD: canvaspass
+    ports:
+      - "0.0.0.0:3000:3000"
     command: --max-allowed-packet=64M
     volumes:
       - db_data:/var/lib/mysql
@@ -19,27 +21,40 @@ services:
       retries: 12
       start_period: 40s
 
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    network_mode: "service:db"
+    environment:
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+    volumes:
+      - ollama_data:/root/.ollama
+    depends_on:
+      db:
+        condition: service_healthy
+
   # ── App (Python FastAPI) ─────────────────────────────────────────
-  # Ollama runs on the host — reachable via host.docker.internal:11434
   app:
     build: .
     restart: unless-stopped
-    ports:
-      - "3000:3000"
+    network_mode: "service:db"
     environment:
       PORT: "3000"
-      DB_HOST: db
+      DB_HOST: 127.0.0.1
       DB_PORT: "3306"
       DB_USER: canvasuser
       DB_PASSWORD: canvaspass
       DB_NAME: canvasdb
       JWT_SECRET: "${JWT_SECRET:-change-this-secret-in-production-use-a-long-random-string}"
-      OLLAMA_URL: "http://host.docker.internal:11434"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      OLLAMA_URL: "http://127.0.0.1:11434"
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-moondream}"
     depends_on:
       db:
         condition: service_healthy
+      ollama:
+        condition: service_started
 
 volumes:
   db_data:
+  ollama_data:

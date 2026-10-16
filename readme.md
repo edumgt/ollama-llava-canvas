@@ -4,17 +4,17 @@
 
 ## <i class="fa-solid fa-clipboard-list"></i> 프로젝트 개요
 
-> **FastAPI + MariaDB + JWT 인증 + Ollama LLaVA 기반 캔버스/주식 분석 웹앱**
+> **FastAPI + MariaDB + JWT 인증 + Ollama Moondream 기반 캔버스/주식 분석 웹앱**
 
-로그인한 사용자가 캔버스에 그림을 그려 저장하고, Ollama LLaVA 비전 모델의 도움을 받아
+로그인한 사용자가 캔버스에 그림을 그려 저장하고, Ollama Moondream 비전 모델의 도움을 받아
 **스케치 묘사**, **주식 차트 기술적 분석**을 수행하며, **DART 공시 속보**를 실시간에 가깝게
 확인할 수 있는 풀스택 웹 애플리케이션입니다.
 
-- **Docker Compose**로 MariaDB + 앱(FastAPI) 서비스 구성 (Ollama는 호스트에서 별도 실행)
+- **Docker Compose**로 MariaDB + 앱(FastAPI) + Ollama 구성
 - **MariaDB 회원 테이블** + JWT 기반 인증 (bcrypt 해싱)
 - 테스트 계정: `test1@test.com / 123456`, `test2@test.com / 123456`
 - **<i class="fa-solid fa-pen"></i> 그리기** — 펜/도형 캔버스, PNG·JPG 내보내기, 서버 저장/불러오기(날짜별 이력)
-- **<i class="fa-solid fa-robot"></i> AI Help** — 스케치를 LLaVA에 보내 자연스러운 이미지 묘사를 생성
+- **<i class="fa-solid fa-robot"></i> AI Help** — 스케치를 Moondream에 보내 자연스러운 이미지 묘사를 생성
 - **<i class="fa-solid fa-chart-line"></i> 주식 차트 분석** — 차트 스크린샷을 업로드하면 추세 / 지지·저항선 /
   캔들 패턴 / 이동평균·거래량 / 종합 의견을 구조화된 리포트로 제공, 분석 이력 DB 저장
 - **<i class="fa-solid fa-bullhorn"></i> 공시 속보** — DART(금융감독원 전자공시시스템) 공식 RSS를
@@ -28,19 +28,18 @@
 # 1. 환경 변수 준비 (.env.example 참고)
 cp .env.example .env
 
-# 2. 서비스 시작 (MariaDB + FastAPI 앱)
+# 2. 서비스 시작 (MariaDB + FastAPI 앱 + Ollama)
 docker compose up -d --build
 
-# 3. Ollama 설치 및 LLaVA 모델 준비 (호스트에서 실행)
-#    docker-compose.yml은 host.docker.internal:11434 로 접속합니다.
-ollama pull llava:34b
+# 3. Moondream 모델 다운로드
+docker compose exec ollama ollama pull moondream
 
 # 4. 브라우저에서 접속
 open http://localhost:3000
 ```
 
-> **Ollama 없이도** 캔버스 드로잉/저장/불러오기, 공시 속보 조회는 정상 동작합니다.
-> **AI Help**와 **주식 차트 분석** 기능만 Ollama + LLaVA 모델이 필요합니다.
+> Moondream 모델을 내려받기 전에도 캔버스 드로잉/저장/불러오기, 공시 속보 조회는 동작합니다.
+> **AI Help**와 **주식 차트 분석** 기능은 Moondream 모델 다운로드 후 사용할 수 있습니다.
 
 ---
 
@@ -70,15 +69,15 @@ FastAPI 서버 (server.py, uvicorn)
     ├── POST   /api/saves               — 캔버스 저장
     ├── GET    /api/saves/:id           — 특정 저장본 로드
     ├── DELETE /api/saves/:id           — 저장본 삭제
-    ├── POST   /api/ai/enhance          — Ollama LLaVA 프록시 (스케치 묘사)
-    ├── POST   /api/stock/analyze       — Ollama LLaVA 프록시 (주식 차트 분석)
+    ├── POST   /api/ai/enhance          — Ollama Moondream 프록시 (스케치 묘사)
+    ├── POST   /api/stock/analyze       — Ollama Moondream 프록시 (주식 차트 분석)
     ├── GET    /api/stock/analyses      — 차트 분석 이력 목록
     ├── GET    /api/stock/analyses/:id  — 차트 분석 이력 조회
     ├── DELETE /api/stock/analyses/:id  — 차트 분석 이력 삭제
     └── GET    /api/dart/disclosures    — DART 공시 RSS 프록시 (15초 서버 캐시)
           │
           ├── MariaDB 11 (users, canvas_saves, stock_analyses)
-          ├── Ollama (llava vision model, 호스트에서 실행)
+          ├── Ollama (Moondream vision model, Compose 서비스)
           └── DART RSS (dart.fss.or.kr/api/todayRSS.xml)
 ```
 
@@ -95,7 +94,7 @@ FastAPI 서버 (server.py, uvicorn)
 
 | 용도 | AWS 리소스 | 이 프로젝트에서의 역할 | 권장도 |
 |---|---|---|---|
-| 스케치·차트 이미지 이해 | **Amazon Bedrock + Amazon Nova Pro** | LLaVA를 대체하는 멀티모달 추론. 이미지와 프롬프트를 함께 전달해 묘사/구조화된 차트 분석 생성 | 필수 |
+| 스케치·차트 이미지 이해 | **Amazon Bedrock + Amazon Nova Pro** | Moondream을 대체하는 멀티모달 추론. 이미지와 프롬프트를 함께 전달해 묘사/구조화된 차트 분석 생성 | 필수 |
 | 이미지 생성 기능 확장(선택) | **Amazon Bedrock + Amazon Nova Canvas** | 사용자의 스케치/텍스트를 바탕으로 결과 이미지를 생성·편집하는 기능 추가 시 사용 | 선택 |
 | 유해 콘텐츠·개인정보 제어 | **Amazon Bedrock Guardrails** | 입력 이미지 설명 및 모델 응답의 유해성/PII 정책 적용 | 프로덕션 권장 |
 | 이미지 원본 보관 | **Amazon S3** | 현재 MariaDB의 base64 `LONGTEXT` 대신 캔버스·차트 이미지를 비공개 객체로 저장. DB에는 키/메타데이터만 보관 | 프로덕션 권장 |
@@ -290,14 +289,14 @@ aws secretsmanager create-secret \
 2. 좌측 **<i class="fa-solid fa-bars"></i> 메뉴** → 날짜별 저장 목록 확인
 3. 저장 항목 클릭 → 해당 캔버스 복원, <i class="fa-solid fa-xmark"></i> 로 삭제
 
-### AI Help (Ollama LLaVA)
+### AI Help (Ollama Moondream)
 1. 스케치를 그린 후 **<i class="fa-solid fa-robot"></i> AI Help** 클릭
-2. 캔버스 이미지를 Ollama LLaVA 모델로 전송
+2. 캔버스 이미지를 Ollama Moondream 모델로 전송
 3. AI가 스케치를 분석하여 **자연스러운 이미지 묘사**를 모달에서 반환
 
-### <i class="fa-solid fa-chart-line"></i> 주식 차트 분석 (Ollama LLaVA)
+### <i class="fa-solid fa-chart-line"></i> 주식 차트 분석 (Ollama Moondream)
 1. 상단 **주식 차트 분석** 탭에서 증권 앱/HTS 캡쳐 이미지를 업로드(클릭 또는 드래그 앤 드롭)
-2. **분석 시작** 클릭 → LLaVA 34B 모델이 차트를 분석
+2. **분석 시작** 클릭 → Moondream 모델이 차트를 분석
 3. 아래 항목으로 구조화된 리포트를 확인:
    - **추세** — 상승/하락/횡보 여부와 근거
    - **지지선/저항선** — 주요 가격대
@@ -324,21 +323,23 @@ aws secretsmanager create-secret \
 |--------|--------|------|------|
 | `app` | 커스텀 빌드 (Python 3.12 / FastAPI) | 3000 | 앱 서버 |
 | `db` | mariadb:11 | (내부) | MariaDB 데이터베이스 |
+| `ollama` | ollama/ollama | (내부) | Moondream 추론 서버 및 모델 저장소 |
 
-> Ollama는 컨테이너로 포함되어 있지 않으며, 호스트에 설치된 Ollama(`http://host.docker.internal:11434`)를 사용합니다.
+모델은 `docker compose exec ollama ollama pull moondream`으로 내려받습니다. 모델 데이터는 `ollama_data` 볼륨에 유지됩니다.
 
 ### 환경 변수 (app 서비스)
 
 | 변수 | 기본값 | 설명 |
 |------|--------|------|
 | `PORT` | 3000 | 앱 리슨 포트 |
-| `DB_HOST` | db | MariaDB 호스트 |
+| `DB_HOST` | 127.0.0.1 | MariaDB 호스트 |
 | `DB_PORT` | 3306 | MariaDB 포트 |
 | `DB_USER` | canvasuser | DB 사용자 |
 | `DB_PASSWORD` | canvaspass | DB 비밀번호 |
 | `DB_NAME` | canvasdb | 데이터베이스 명 |
 | `JWT_SECRET` | (기본값 변경 필수) | JWT 서명 키 |
-| `OLLAMA_URL` | http://host.docker.internal:11434 | Ollama API URL |
+| `OLLAMA_URL` | http://127.0.0.1:11434 | Ollama API URL |
+| `OLLAMA_MODEL` | moondream | Ollama 이미지 모델 |
 
 ---
 
@@ -409,8 +410,8 @@ DB_HOST=localhost uvicorn server:app --reload --port 3000
 - **httpx** (Ollama / DART RSS 비동기 HTTP 클라이언트)
 
 ### AI
-- **Ollama** (로컬 AI 모델 서버, 호스트에서 실행)
-- **LLaVA 34B** (Large Language and Vision Assistant — 스케치 묘사, 주식 차트 분석)
+- **Ollama + Moondream** (Docker Compose 이미지 분석 서비스)
+- **Moondream** (경량 비전 언어 모델 — 스케치 묘사, 주식 차트 분석)
 
 ### 외부 데이터
 - **DART**(금융감독원 전자공시시스템) 공식 RSS — 실시간 공시 속보
@@ -447,3 +448,56 @@ DB_HOST=localhost uvicorn server:app --reload --port 3000
 2. MariaDB 비밀번호도 강력한 값으로 변경하세요
 3. HTTPS를 적용하는 리버스 프록시(nginx, Caddy 등) 사용을 권장합니다
 4. 주식 차트 분석 / 공시 속보는 모두 **참고용 정보**이며, 투자 조언이 아닙니다
+
+
+---
+
+## 모델간의 조합 및 순서를 정의하는 아키텍쳐가 중요해짐
+
+**네, 아주 훌륭하고 실제로 현업에서 자주 쓰이는 파이프라인(Pipeline) 조합 방식입니다.**
+
+질문하신 것처럼 **"1차로 YOLO, 2차로 Moondream"** 순서로 연동하면, 두 모델의 장점을 모두 극대화하고 단점을 상호 보완할 수 있습니다.
+
+---
+
+### 1. 추천하는 파이프라인 구조 (YOLO $\rightarrow$ Moondream)
+
+이 방식은 속도와 정밀도를 동시에 챙기는 **'필터링 및 정밀 분석'** 구조입니다.
+
+* **1단계: YOLO (빠른 선별 및 위치 포착)**
+* **역할**: 입력된 영상/이미지에서 실시간으로 빠르게 특정 객체(예: 사람, 차량, 제품 등)의 위치(Bounding Box)를 따냅니다.
+* **장점**: 연산량이 적어 실시간으로 불필요한 배경을 걸러내고 관심 영역(ROI, Region of Interest)만 정확하게 잘라낼(Crop) 수 있습니다.
+
+
+* **2단계: Moondream (정밀 쿼리 및 상황 이해)**
+* **역할**: YOLO가 잘라낸 특정 객체 이미지나 전체 원본 이미지를 받아, 자연어 쿼리("이 사람이 들고 있는 도구가 무엇인가?", "제품에 파손된 흔적이 있는가?")를 던져 고차원의 분석 결과를 얻습니다.
+* **장점**: 무거운 VLM(비전-언어 모델) 전체를 매 프레임 돌릴 필요 없이, YOLO가 집어준 핵심 영역에만 집중하므로 효율적이고 정확합니다.
+
+
+
+---
+
+### 2. 구체적인 유즈케이스 예시
+
+* **스마트 공장 불량 검수 시스템**
+* **1차 (YOLO)**: 컨베이어 벨트를 지나가는 부품들의 위치를 실시간으로 빠르게 캐치하여 크롭합니다.
+* **2차 (Moondream)**: 크롭된 부품 사진을 대상으로 *"부품 표면에 미세한 스크래치나 균열이 있나요?"* 라고 쿼리를 날려 판정합니다.
+
+
+* **CCTV 이상 행동 감지**
+* **1차 (YOLO)**: 화면에 등장하는 사람들의 위치를 실시간으로 트래킹합니다.
+* **2차 (Moondream)**: 특정 사람이 쓰러져 있거나 위험한 행동을 하는지 맥락을 파악하기 위해 쿼리를 수행합니다.
+
+
+
+---
+
+### 3. 반대 방향도 가능할까요? (Moondream $\rightarrow$ YOLO)
+
+반대로 **Moondream이 1차, YOLO가 2차**가 되는 구조도 가능합니다.
+
+* Moondream에게 *"화면 안에 배달 박스가 어디 있는지 찾아줘"* 라고 자연어로 물어 좌표를 얻은 뒤, 그 영역만 정밀하게 YOLO나 다른 알고리즘으로 넘겨 후속 처리를 하는 방식도 유용하게 쓰입니다.
+
+### 요약
+
+두 모델을 조합하는 것은 속도(YOLO)와 유연한 추론 능력(Moondream)을 모두 잡는 매우 스마트한 접근입니다. 구현하시려는 목적에 맞춰 역할 분담을 설계하시면 아주 만족스러운 성능을 얻으실 수 있을 것입니다!
